@@ -1618,11 +1618,21 @@ function render(){
 }
 function renderSearch(m,isDir){
   m.innerHTML=(isDir?`<div class="note" style="background:var(--chip);color:var(--ink2);border-color:var(--grid)">Complete directory view of all ${fmt(N)} Scottish companies. All filters, including School and programme alignment, are available.</div>`:'')
-   + searchBarHTML() + chipsHTML() + kpiHTML() + `<div class="card" id="tbl-card">`+tableHTML()+`</div>`
-   + `<div class="note" style="background:var(--surface);border-color:var(--grid);color:var(--ink2)">Programme matches indicate potential academic or career relevance; they never mean an organisation currently offers placements or vacancies. <b>Distances use the registered-office or principal-office postcode</b>: for some companies this is an accountant's or agent's address rather than a trading site — check the Address status field (also a filter under Advanced filters) before relying on location. Contact details are researched manually from public sources only; nothing is guessed.</div>`;
+   + searchBarHTML() + chipsHTML() + kpiHTML()
+   + `<div id="map-note"></div><div id="map" role="region" aria-label="Employer map" style="height:420px"></div>
+   <div style="font-size:12px;color:var(--ink2);margin:6px 0 14px">Markers sit at registered-office postcode centroids. The background map needs an internet connection. The table below lists the same results.</div>`
+   + `<div class="card" id="tbl-card">`+tableHTML()+`</div>`
+   + `<div class="note" style="background:var(--surface);border-color:var(--grid);color:var(--ink2)">This directory shows organisations, not advertised vacancies; treat each result as a potential employer to research and approach. <b>Distances use the registered-office or principal-office postcode</b>: for some companies this is an accountant's or agent's address rather than a trading site — check the Address status field (also a filter under Advanced filters) before relying on location. Contact details are researched manually from public sources only; nothing is guessed.</div>`;
   bindSearchBar(()=>render()); bindChips(m,()=>render());
   const rer=()=>{$('tbl-card').innerHTML=tableHTML();bindTable(m,rer);};
-  bindTable(m,rer); previewCount();
+  bindTable(m,rer);
+  MAP=L.map('map').setView(S.pcLat!==null?[S.pcLat,S.pcLon]:[51.979,-3.513], S.pcLat!==null?10:7);
+  (function(){var esri=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'});var errs=0,swapped=false;esri.on('tileerror',function(){errs++;if(errs>=4&&!swapped&&MAP.hasLayer(esri)){swapped=true;MAP.removeLayer(esri);var de=L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png',{maxZoom:18,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'});var e2=0;de.on('tileerror',function(){e2++;if(e2>=4){var n=document.getElementById('map-note');if(n&&n.innerText.indexOf('background')<0){n.innerText+=' Map background could not be loaded (no internet or the tile servers are blocked on this network); markers still work.';}}});de.addTo(MAP);}});esri.addTo(MAP);})();
+  CLUSTER=L.markerClusterGroup({chunkedLoading:true,disableClusteringAtZoom:15,
+    iconCreateFunction:cl=>{const n=cl.getChildCount();const s=n>=1000?44:n>=100?38:32;
+      return L.divIcon({html:`<div style="width:${s}px;height:${s}px;border-radius:50%;background:rgba(37,106,191,.85);border:2px solid #fcfcfb;display:flex;align-items:center;justify-content:center;color:#fff;font:600 ${n>=1000?11:12}px system-ui">${n>=1000?(n/1000).toFixed(1)+'k':n}</div>`,className:'',iconSize:[s,s]});}});
+  MAP.addLayer(CLUSTER);
+  drawMap(); previewCount();
 }
 // ---- Programme Employer Explorer ----
 function renderProgX(m){
@@ -1730,7 +1740,7 @@ function drawMap(){
   const note=$('map-note');
   const plot=IDX.filter(i=>c.lat[i]!=null);
   if(plot.length>MAP_CAP){
-    note.innerHTML=`<div class="note">The current search matches ${fmt(plot.length)} employers, more than the ${fmt(MAP_CAP)} the map plots individually. Showing council-area totals instead — add a postcode, radius, programme or other filters to see individual employers.</div>`;
+    note.innerHTML=`<div class="note">The current search matches ${fmt(plot.length)} employers, more than the ${fmt(MAP_CAP)} the map plots individually. Showing council-area totals instead — add a postcode, radius or other filters to see individual employers.</div>`;
     const agg={};
     for(const i of plot){const k=c.co[i];(agg[k]=agg[k]||[0,0,0])[0]++;agg[k][1]+=c.lat[i];agg[k][2]+=c.lon[i];}
     for(const k in agg){const [n,sl,so]=agg[k];
